@@ -23,14 +23,12 @@ concurrency:
 
 jobs:
   open-spec-issue:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    permissions:
+      issues: write
+    uses: AIDLC-Research-1/.github-private/.github/workflows/jira-stage-issue-reusable.yaml@main
+    with:
+      stage: spec
+      jira_key: ${{ github.event.client_payload.issue_key }}
+      summary: ${{ github.event.client_payload.summary }}
+      requirement: ${{ github.event.client_payload.description }}
 
-      - name: Open spec-stage issue, assign Copilot
-        uses: AIDLC-Research-1/.github-private/actions/jira-stage-issue@main
-        with:
-          stage: spec
-          jira_key: ${{ github.event.client_payload.issue_key }}
-          summary: ${{ github.event.client_payload.summary }}
-          requirement: ${{ github.event.client_payload.description }}

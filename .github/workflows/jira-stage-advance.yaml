@@ -16,16 +16,16 @@ permissions:
   pull-requests: read
 
 jobs:
-  advance:
+  determine:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.labels.outputs.stage }}
+      jira_key: ${{ steps.labels.outputs.jira_key }}
+      next: ${{ steps.next.outputs.next }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Determine current stage + jira key from PR labels
         id: labels
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
           STAGE=$(echo "$LABELS" | jq -r '.[] | select(startswith("stage:")) | sub("stage:";"")')
@@ -45,19 +45,26 @@ jobs:
             *) echo "next=" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      - name: Open next stage issue
-        if: steps.next.outputs.next != '' && steps.labels.outputs.jira_key != ''
-        uses: AIDLC-Research-1/.github-private/actions/jira-stage-issue@main
-        with:
-          stage: ${{ steps.next.outputs.next }}
-          jira_key: ${{ steps.labels.outputs.jira_key }}
-          summary: ${{ github.event.pull_request.title }}
-          requirement: "See specs/${{ steps.labels.outputs.jira_key }}.md and merged PR #${{ github.event.pull_request.number }}."
-          prior_pr: ${{ github.event.pull_request.number }}
+  open-next-stage-issue:
+    needs: determine
+    if: needs.determine.outputs.next != '' && needs.determine.outputs.jira_key != ''
+    permissions:
+      issues: write
+    uses: AIDLC-Research-1/.github-private/.github/workflows/jira-stage-issue-reusable.yaml@main
+    with:
+      stage: ${{ needs.determine.outputs.next }}
+      jira_key: ${{ needs.determine.outputs.jira_key }}
+      summary: ${{ github.event.pull_request.title }}
+      requirement: "See specs/${{ needs.determine.outputs.jira_key }}.md and merged PR #${{ github.event.pull_request.number }}."
+      prior_pr: "${{ github.event.pull_request.number }}"
 
-      - name: Post release-readiness verdict (after security stage merges)
-        if: steps.labels.outputs.stage == 'security' && steps.labels.outputs.jira_key != ''
-        uses: AIDLC-Research-1/.github-private/actions/release-readiness-check@main
-        with:
-          jira_key: ${{ steps.labels.outputs.jira_key }}
-          pr_number: ${{ github.event.pull_request.number }}
+  release-readiness-verdict:
+    needs: determine
+    if: needs.determine.outputs.stage == 'security' && needs.determine.outputs.jira_key != ''
+    permissions:
+      pull-requests: write
+      contents: read
+    uses: AIDLC-Research-1/.github-private/.github/workflows/release-readiness-check-reusable.yaml@main
+    with:
+      jira_key: ${{ needs.determine.outputs.jira_key }}
+      pr_number: "${{ github.event.pull_request.number }}"
