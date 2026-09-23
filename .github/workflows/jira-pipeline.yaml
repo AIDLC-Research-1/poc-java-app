@@ -1,0 +1,36 @@
+name: Jira Issue -> Spec Agent (pipeline start)
+
+# Fired by a Jira Automation rule ("Send web request" action) on issue
+# creation:
+#   POST /repos/<owner>/<repo>/dispatches
+#   { "event_type": "jira-issue-created",
+#     "client_payload": { "issue_key", "summary", "description" } }
+#
+# This is stage 1 of 5 (spec -> impact -> dev -> qa -> security). Each
+# later stage is opened automatically by stage-advance.yaml once the prior
+# stage's PR is merged (human-approved) — see that workflow for the chain.
+on:
+  repository_dispatch:
+    types: [jira-issue-created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: jira-pipeline-${{ github.event.client_payload.issue_key }}
+  cancel-in-progress: false
+
+jobs:
+  open-spec-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open spec-stage issue, assign Copilot
+        uses: AIDLC-Research-1/.github-private/actions/jira-stage-issue@main
+        with:
+          stage: spec
+          jira_key: ${{ github.event.client_payload.issue_key }}
+          summary: ${{ github.event.client_payload.summary }}
+          requirement: ${{ github.event.client_payload.description }}

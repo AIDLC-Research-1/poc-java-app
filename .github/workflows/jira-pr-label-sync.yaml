@@ -1,0 +1,38 @@
+name: Jira Pipeline — sync labels onto agent PR
+
+# Copilot's cloud coding agent doesn't automatically copy the assigned
+# issue's labels onto the PR it opens. This copies any stage:*/jira:*
+# labels from the linked issue (via "Fixes #N"/"Closes #N" in the PR body)
+# so jira-stage-advance.yaml can detect the pipeline stage on merge.
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy stage/jira labels from linked issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          ISSUE_NUM=$(echo "$PR_BODY" | grep -ioE '(fixes|closes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "No linked issue found in PR body; skipping label sync."
+            exit 0
+          fi
+          LABELS=$(gh issue view "$ISSUE_NUM" --json labels --jq '.labels[].name' | grep -E '^(stage:|jira:)' || true)
+          if [ -z "$LABELS" ]; then
+            echo "Linked issue #$ISSUE_NUM has no stage:/jira: labels; skipping."
+            exit 0
+          fi
+          while IFS= read -r label; do
+            gh pr edit "$PR_NUMBER" --add-label "$label"
+          done <<< "$LABELS"

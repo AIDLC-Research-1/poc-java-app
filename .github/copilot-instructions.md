@@ -18,3 +18,11 @@ Stack: Java 17, Spring Boot 3.3.x, Maven.
 - Agents must NOT modify `.github/workflows/**` (CI/CD) or branch protection.
 - Agents must NOT merge PRs or trigger deployments — human approval required.
 - Security/release agents: read-only, per `attestations/**` / pipeline results only.
+
+## Jira-triggered pipeline
+A Jira issue creation dispatches `jira-pipeline.yaml`, which opens a
+`stage:spec` issue assigned to Copilot. Each stage's merged PR
+(`jira-stage-advance.yaml`) opens the next stage issue automatically:
+spec -> impact -> dev -> qa -> security -> read-only release-readiness
+verdict. Do not remove `stage:*`/`jira:*` labels from issues/PRs — the
+chain relies on them. See `scripts/jira-stage-issue.sh`.
