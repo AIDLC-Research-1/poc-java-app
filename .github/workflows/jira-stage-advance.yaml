@@ -1,0 +1,67 @@
+name: Jira Pipeline — stage advance
+
+# Chains the 5-stage pipeline (spec -> impact -> dev -> qa -> security).
+# Each stage's PR must be human-approved and merged (branch protection
+# enforces this) before the next stage issue is opened — no auto-merge
+# anywhere in this chain. After the security stage merges, this workflow
+# posts a read-only release-readiness verdict instead of opening a further
+# stage (there is no automated deploy in this POC).
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  advance:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine current stage + jira key from PR labels
+        id: labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          STAGE=$(echo "$LABELS" | jq -r '.[] | select(startswith("stage:")) | sub("stage:";"")')
+          JIRA_KEY=$(echo "$LABELS" | jq -r '.[] | select(startswith("jira:")) | sub("jira:";"")')
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          echo "jira_key=$JIRA_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Map to next stage
+        id: next
+        run: |
+          case "${{ steps.labels.outputs.stage }}" in
+            spec) echo "next=impact" >> "$GITHUB_OUTPUT" ;;
+            impact) echo "next=dev" >> "$GITHUB_OUTPUT" ;;
+            dev) echo "next=qa" >> "$GITHUB_OUTPUT" ;;
+            qa) echo "next=security" >> "$GITHUB_OUTPUT" ;;
+            security) echo "next=" >> "$GITHUB_OUTPUT" ;;
+            *) echo "next=" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Open next stage issue
+        if: steps.next.outputs.next != '' && steps.labels.outputs.jira_key != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "See specs/${{ steps.labels.outputs.jira_key }}.md and merged PR #${{ github.event.pull_request.number }}." > /tmp/req.txt
+          chmod +x scripts/jira-stage-issue.sh
+          scripts/jira-stage-issue.sh "${{ steps.next.outputs.next }}" \
+            "${{ steps.labels.outputs.jira_key }}" \
+            "${{ github.event.pull_request.title }}" \
+            /tmp/req.txt \
+            "${{ github.event.pull_request.number }}"
+
+      - name: Post release-readiness verdict (after security stage merges)
+        if: steps.labels.outputs.stage == 'security' && steps.labels.outputs.jira_key != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x scripts/release-readiness-check.sh
+          scripts/release-readiness-check.sh "${{ steps.labels.outputs.jira_key }}" "${{ github.event.pull_request.number }}"
