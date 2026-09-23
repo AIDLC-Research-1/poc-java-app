@@ -47,21 +47,17 @@ jobs:
 
       - name: Open next stage issue
         if: steps.next.outputs.next != '' && steps.labels.outputs.jira_key != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "See specs/${{ steps.labels.outputs.jira_key }}.md and merged PR #${{ github.event.pull_request.number }}." > /tmp/req.txt
-          chmod +x scripts/jira-stage-issue.sh
-          scripts/jira-stage-issue.sh "${{ steps.next.outputs.next }}" \
-            "${{ steps.labels.outputs.jira_key }}" \
-            "${{ github.event.pull_request.title }}" \
-            /tmp/req.txt \
-            "${{ github.event.pull_request.number }}"
+        uses: AIDLC-Research-1/.github-private/actions/jira-stage-issue@main
+        with:
+          stage: ${{ steps.next.outputs.next }}
+          jira_key: ${{ steps.labels.outputs.jira_key }}
+          summary: ${{ github.event.pull_request.title }}
+          requirement: "See specs/${{ steps.labels.outputs.jira_key }}.md and merged PR #${{ github.event.pull_request.number }}."
+          prior_pr: ${{ github.event.pull_request.number }}
 
       - name: Post release-readiness verdict (after security stage merges)
         if: steps.labels.outputs.stage == 'security' && steps.labels.outputs.jira_key != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          chmod +x scripts/release-readiness-check.sh
-          scripts/release-readiness-check.sh "${{ steps.labels.outputs.jira_key }}" "${{ github.event.pull_request.number }}"
+        uses: AIDLC-Research-1/.github-private/actions/release-readiness-check@main
+        with:
+          jira_key: ${{ steps.labels.outputs.jira_key }}
+          pr_number: ${{ github.event.pull_request.number }}
