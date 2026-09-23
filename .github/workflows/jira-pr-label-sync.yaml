@@ -20,6 +20,7 @@ jobs:
       - name: Copy stage/jira labels from linked issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -28,11 +29,11 @@ jobs:
             echo "No linked issue found in PR body; skipping label sync."
             exit 0
           fi
-          LABELS=$(gh issue view "$ISSUE_NUM" --json labels --jq '.labels[].name' | grep -E '^(stage:|jira:)' || true)
+          LABELS=$(gh issue view "$ISSUE_NUM" --repo "$GH_REPO" --json labels --jq '.labels[].name' | grep -E '^(stage:|jira:)' || true)
           if [ -z "$LABELS" ]; then
             echo "Linked issue #$ISSUE_NUM has no stage:/jira: labels; skipping."
             exit 0
           fi
           while IFS= read -r label; do
-            gh pr edit "$PR_NUMBER" --add-label "$label"
+            gh pr edit "$PR_NUMBER" --repo "$GH_REPO" --add-label "$label"
           done <<< "$LABELS"
