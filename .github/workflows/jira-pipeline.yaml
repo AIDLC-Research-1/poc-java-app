@@ -34,7 +34,7 @@ jobs:
 
       - name: Open spec-stage issue, assign Copilot
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_TOKEN }}
         run: |
           chmod +x scripts/jira-stage-issue.sh
           scripts/jira-stage-issue.sh spec \

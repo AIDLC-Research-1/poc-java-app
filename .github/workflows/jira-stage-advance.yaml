@@ -46,7 +46,7 @@ jobs:
       - name: Open next stage issue
         if: steps.next.outputs.next != '' && steps.labels.outputs.jira_key != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_TOKEN }}
         run: |
           echo "See specs/${{ steps.labels.outputs.jira_key }}.md and merged PR #${{ github.event.pull_request.number }}." > /tmp/req.txt
           chmod +x scripts/jira-stage-issue.sh
