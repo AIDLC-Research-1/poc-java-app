@@ -23,12 +23,22 @@ concurrency:
 
 jobs:
   open-spec-issue:
-    permissions:
-      issues: write
-    uses: AIDLC-Research-1/.github-private/.github/workflows/jira-stage-issue-reusable.yaml@main
-    with:
-      stage: spec
-      jira_key: ${{ github.event.client_payload.issue_key }}
-      summary: ${{ github.event.client_payload.summary }}
-      requirement: ${{ github.event.client_payload.description }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write Jira description to file
+        env:
+          ISSUE_DESCRIPTION: ${{ github.event.client_payload.description }}
+        run: printf '%s' "$ISSUE_DESCRIPTION" > /tmp/jira-description.txt
+
+      - name: Open spec-stage issue, assign Copilot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x scripts/jira-stage-issue.sh
+          scripts/jira-stage-issue.sh spec \
+            "${{ github.event.client_payload.issue_key }}" \
+            "${{ github.event.client_payload.summary }}" \
+            /tmp/jira-description.txt
 
