@@ -16,8 +16,8 @@ render.
   times without code or config changes,
   Then it returns the same sample items in the same JSON structure.
 - Given the UI needs something simple to render, When the response is returned,
-  Then each sample item includes stable display data suitable for a basic menu
-  view.
+  Then each sample item includes stable fields for a basic menu view: `id`,
+  `name`, and `price`.
 
 ## Out of scope
 - Backing the menu with a database or other dynamic data source.
@@ -25,4 +25,4 @@ render.
 - Filtering, search, or personalization.
 
 ## Open questions
-- What exact fields should each sample menu item include for the demo UI?
+- None.
